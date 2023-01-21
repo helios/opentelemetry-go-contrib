@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 )
 
 // Any takes a list of Filters and returns a Filter that

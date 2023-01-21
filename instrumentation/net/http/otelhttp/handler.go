@@ -15,8 +15,10 @@
 package otelhttp // import "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/felixge/httpsnoop"
@@ -116,6 +118,13 @@ func (h *Handler) createMeasures() {
 	h.valueRecorders[ServerLatency] = serverLatencyMeasure
 }
 
+func collectRequestHeaders(r *http.Request, span trace.Span) {
+	headersStr, err := json.Marshal(r.Header)
+	if err == nil {
+		span.SetAttributes(attribute.KeyValue{Key: "http.request.headers", Value: attribute.StringValue(string(headersStr))})
+	}
+}
+
 // ServeHTTP serves HTTP requests (http.Handler).
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestStartTime := time.Now()
@@ -126,6 +135,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	metadataOnly := os.Getenv("HS_METADATA_ONLY") == "true"
 
 	ctx := h.propagators.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
 	opts := h.spanStartOptions
@@ -170,6 +181,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil && r.Body != http.NoBody {
 		bw.ReadCloser = r.Body
 		bw.record = readRecordFunc
+		bw.metadataOnly = metadataOnly
 		r.Body = &bw
 	}
 
@@ -186,6 +198,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ctx:            ctx,
 		props:          h.propagators,
 		statusCode:     200, // default status code in case the Handler doesn't write anything
+		metadataOnly:   metadataOnly,
+		responseBody:   []byte{},
 	}
 
 	// Wrap w to use our ResponseWriter methods while also exposing
@@ -210,6 +224,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 
 	setAfterServeAttributes(span, bw.read, rww.written, rww.statusCode, bw.err, rww.err)
+	if !metadataOnly {
+		collectRequestHeaders(r, span)
+		if len(bw.requestBody) > 0 {
+			span.SetAttributes(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+		}
+
+		if len(rww.responseBody) > 0 {
+			span.SetAttributes(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rww.responseBody))})
+		}
+	}
 
 	// Add metrics
 	attributes := append(labeler.Get(), semconv.HTTPServerMetricAttributesFromHTTPRequest(h.operation, r)...)

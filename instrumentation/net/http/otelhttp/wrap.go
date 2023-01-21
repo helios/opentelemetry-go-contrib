@@ -30,12 +30,19 @@ type bodyWrapper struct {
 	io.ReadCloser
 	record func(n int64) // must not be nil
 
-	read int64
-	err  error
+	read         int64
+	err          error
+	requestBody  []byte
+	metadataOnly bool
 }
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
+	if n > 0 {
+		if !w.metadataOnly {
+			w.requestBody = append(w.requestBody, b[0:n]...)
+		}
+	}
 	n1 := int64(n)
 	w.read += n1
 	w.err = err
@@ -67,6 +74,9 @@ type respWriterWrapper struct {
 	statusCode  int
 	err         error
 	wroteHeader bool
+
+	responseBody []byte
+	metadataOnly bool
 }
 
 func (w *respWriterWrapper) Header() http.Header {
@@ -78,6 +88,9 @@ func (w *respWriterWrapper) Write(p []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 	n, err := w.ResponseWriter.Write(p)
+	if !w.metadataOnly && len(p) > 0 {
+		w.responseBody = append(w.responseBody, p...)
+	}
 	n1 := int64(n)
 	w.record(n1)
 	w.written += n1

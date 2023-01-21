@@ -19,7 +19,7 @@ import (
 	"net/textproto"
 	"strings"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 )
 
 // Header returns a Filter that returns true if the request
