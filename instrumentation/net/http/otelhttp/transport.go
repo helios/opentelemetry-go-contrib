@@ -19,8 +19,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"os"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
@@ -38,6 +40,7 @@ type Transport struct {
 	filters           []Filter
 	spanNameFormatter func(string, *http.Request) string
 	clientTrace       func(context.Context) *httptrace.ClientTrace
+	metadataOnly      bool
 }
 
 var _ http.RoundTripper = &Transport{}
@@ -53,7 +56,8 @@ func NewTransport(base http.RoundTripper, opts ...Option) *Transport {
 	}
 
 	t := Transport{
-		rt: base,
+		rt:           base,
+		metadataOnly: os.Getenv("HS_METADATA_ONLY") == "true",
 	}
 
 	defaultOpts := []Option{
@@ -103,7 +107,18 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 
 	opts := append([]trace.SpanStartOption{}, t.spanStartOptions...) // start with the configured options
 
+	var bw bodyWrapper
+	if r.Body != nil && r.Body != http.NoBody {
+		bw.ReadCloser = r.Body
+		bw.record = func(int64) {}
+		bw.metadataOnly = t.metadataOnly
+		r.Body = &bw
+	}
+
 	ctx, span := tracer.Start(r.Context(), t.spanNameFormatter("", r), opts...)
+	if !t.metadataOnly {
+		collectRequestHeaders(r, span)
+	}
 
 	if t.clientTrace != nil {
 		ctx = httptrace.WithClientTrace(ctx, t.clientTrace(ctx))
@@ -121,9 +136,13 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 		return res, err
 	}
 
+	if !t.metadataOnly && len(bw.requestBody) > 0 {
+		span.SetAttributes(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+	}
+
 	span.SetAttributes(semconv.HTTPAttributesFromHTTPStatusCode(res.StatusCode)...)
 	span.SetStatus(semconv.SpanStatusFromHTTPStatusCode(res.StatusCode))
-	res.Body = newWrappedBody(span, res.Body)
+	res.Body = newWrappedBody(span, res.Body, t.metadataOnly)
 
 	return res, err
 }
@@ -131,17 +150,17 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 // newWrappedBody returns a new and appropriately scoped *wrappedBody as an
 // io.ReadCloser. If the passed body implements io.Writer, the returned value
 // will implement io.ReadWriteCloser.
-func newWrappedBody(span trace.Span, body io.ReadCloser) io.ReadCloser {
+func newWrappedBody(span trace.Span, body io.ReadCloser, metadataOnly bool) io.ReadCloser {
 	// The successful protocol switch responses will have a body that
 	// implement an io.ReadWriteCloser. Ensure this interface type continues
 	// to be satisfied if that is the case.
 	if _, ok := body.(io.ReadWriteCloser); ok {
-		return &wrappedBody{span: span, body: body}
+		return &wrappedBody{span: span, body: body, metadataOnly: metadataOnly}
 	}
 
 	// Remove the implementation of the io.ReadWriteCloser and only implement
 	// the io.ReadCloser.
-	return struct{ io.ReadCloser }{&wrappedBody{span: span, body: body}}
+	return struct{ io.ReadCloser }{&wrappedBody{span: span, body: body, metadataOnly: metadataOnly}}
 }
 
 // wrappedBody is the response body type returned by the transport
@@ -153,8 +172,10 @@ func newWrappedBody(span trace.Span, body io.ReadCloser) io.ReadCloser {
 // If the response body implements the io.Writer interface (i.e. for
 // successful protocol switches), the wrapped body also will.
 type wrappedBody struct {
-	span trace.Span
-	body io.ReadCloser
+	span         trace.Span
+	body         io.ReadCloser
+	responseBody []byte
+	metadataOnly bool
 }
 
 var _ io.ReadWriteCloser = &wrappedBody{}
@@ -172,10 +193,20 @@ func (wb *wrappedBody) Write(p []byte) (int, error) {
 func (wb *wrappedBody) Read(b []byte) (int, error) {
 	n, err := wb.body.Read(b)
 
+	if n > 0 && len(b) >= n {
+		if !wb.metadataOnly {
+			wb.responseBody = append(wb.responseBody, b[0:n]...)
+		}
+	}
+
 	switch err {
 	case nil:
 		// nothing to do here but fall through to the return
 	case io.EOF:
+		if !wb.metadataOnly && len(wb.responseBody) > 0 {
+			wb.span.SetAttributes(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(wb.responseBody))})
+		}
+
 		wb.span.End()
 	default:
 		wb.span.RecordError(err)
