@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
@@ -43,7 +43,7 @@ import (
 
 func assertScopeMetrics(t *testing.T, sm metricdata.ScopeMetrics, attrs attribute.Set) {
 	assert.Equal(t, instrumentation.Scope{
-		Name:    "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+		Name:    "github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp",
 		Version: otelhttp.SemVersion(),
 	}, sm.Scope)
 
