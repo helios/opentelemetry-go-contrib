@@ -1,11 +1,11 @@
-module go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/example
+module github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp/example
 
 go 1.18
 
-replace go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => ../
+replace github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp => ../
 
 require (
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0
+	github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp v0.37.0
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v0.34.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.11.2

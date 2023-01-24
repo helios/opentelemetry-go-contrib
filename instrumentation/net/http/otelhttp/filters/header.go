@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package filters // import "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/filters"
+package filters // import "github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp/filters"
 
 import (
 	"net/http"
 	"net/textproto"
 	"strings"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 )
 
 // Header returns a Filter that returns true if the request

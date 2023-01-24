@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package otelhttp // import "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+package otelhttp // import "github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 
 import (
 	"net/http"

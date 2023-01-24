@@ -14,13 +14,13 @@
 
 // Package filters provides a set of filters useful with the
 // otelhttp.WithFilter() option to control which inbound requests are traced.
-package filters // import "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/filters"
+package filters // import "github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp/filters"
 
 import (
 	"net/http"
 	"strings"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 )
 
 // Any takes a list of Filters and returns a Filter that
