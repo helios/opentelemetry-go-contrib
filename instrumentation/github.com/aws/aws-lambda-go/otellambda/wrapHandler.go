@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // wrappedHandler is a struct which holds an instrumentor
@@ -36,9 +37,17 @@ func (h wrappedHandler) Invoke(ctx context.Context, payload []byte) ([]byte, err
 	ctx, span := h.instrumentor.tracingBegin(ctx, payload)
 	defer h.instrumentor.tracingEnd(ctx, span)
 
+	if len(payload) > 0 {
+		span.SetAttributes(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(payload))})
+	}
+
 	response, err := h.handler.Invoke(ctx, payload)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(response) > 0 {
+		span.SetAttributes(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(string(response))})
 	}
 
 	return response, nil
