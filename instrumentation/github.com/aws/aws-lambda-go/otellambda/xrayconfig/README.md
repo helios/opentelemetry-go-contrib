@@ -8,7 +8,7 @@ This module provides recommended configuration options for [`AWS Lambda Instrume
 ## Installation
 
 ```bash
-go get -u go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig
+go get -u github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/aws/aws-lambda-go/lambda"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
 )
 
 type MyEvent struct {
@@ -42,7 +42,7 @@ Now configure the instrumentation with the provided options to export traces to 
 
 ```go
 // Add import
-import "go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig"
+import "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig"
 
 // add options to InstrumentHandler call
 func main() {
@@ -72,6 +72,6 @@ Apache 2.0 - See [LICENSE][license-url] for more information.
 
 [license-url]: https://github.com/open-telemetry/opentelemetry-go-contrib/blob/main/LICENSE
 [license-image]: https://img.shields.io/badge/license-Apache_2.0-green.svg?style=flat
-[goref-image]: https://pkg.go.dev/badge/go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig.svg
-[goref-url]: https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig
+[goref-image]: https://pkg.go.dev/badge/github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig.svg
+[goref-url]: https://pkg.go.dev/github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda/xrayconfig
 [discussions-url]: https://github.com/open-telemetry/opentelemetry-go/discussions

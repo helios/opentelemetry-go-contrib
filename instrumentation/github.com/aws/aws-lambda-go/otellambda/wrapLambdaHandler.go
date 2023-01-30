@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package otellambda // import "go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
+package otellambda // import "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // wrappedHandlerFunction is a struct which only holds an instrumentor and is
@@ -154,6 +156,10 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 		ctx, span := whf.instrumentor.tracingBegin(ctx, eventJSON)
 		defer whf.instrumentor.tracingEnd(ctx, span)
 
+		if len(eventJSON) > 0 {
+			span.SetAttributes(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(eventJSON))})
+		}
+
 		handler := reflect.ValueOf(handlerFunc)
 		var args []reflect.Value
 		if takesContext {
@@ -164,6 +170,22 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 		}
 
 		response := handler.Call(args)
+		var err error
+		if len(response) > 0 {
+			if errVal, ok := response[len(response)-1].Interface().(error); ok {
+				err = errVal
+			}
+		}
+
+		if err == nil {
+			if len(response) > 1 {
+				val := response[0].Interface()
+				strVal, success := val.(string)
+				if success {
+					span.SetAttributes(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(strVal)})
+				}
+			}
+		}
 
 		return response
 	}
