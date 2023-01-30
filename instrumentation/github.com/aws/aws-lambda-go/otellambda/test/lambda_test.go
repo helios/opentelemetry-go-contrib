@@ -31,8 +31,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambdacontext"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
 	lambdadetector "go.opentelemetry.io/contrib/detectors/aws/lambda"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda"
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
@@ -43,6 +43,9 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
 )
+
+var faasRes = attribute.KeyValue{"faas.res", attribute.StringValue("hello world")}
+var faasEvent = attribute.KeyValue{"faas.event", attribute.StringValue("{\"Headers\":{\"Mockkey\":\"12345678901234567890123456789012:1234567890123456:1\"}}")}
 
 var errorLogger = log.New(log.Writer(), "OTel Lambda Test Error: ", 0)
 
@@ -105,6 +108,45 @@ func setEnvVars() {
 	_ = os.Setenv("_X_AMZN_TRACE_ID", "Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1")
 }
 
+func getExpectedSpanStub(traceId trace.TraceID, parentContext context.Context, additionalAttributes ...attribute.KeyValue) tracetest.SpanStub {
+	attributes := []attribute.KeyValue{
+		attribute.String("faas.execution", "123"),
+		attribute.String("faas.id", "arn:partition:service:region:account-id:resource-type:resource-id"),
+		attribute.String("cloud.account.id", "account-id"),
+	}
+
+	attributes = append(attributes, additionalAttributes...)
+
+	return tracetest.SpanStub{
+		Name: "testFunction",
+		SpanContext: trace.NewSpanContext(trace.SpanContextConfig{
+			TraceID:    traceId,
+			SpanID:     trace.SpanID{1},
+			TraceFlags: 1,
+			TraceState: trace.TraceState{},
+			Remote:     false,
+		}),
+		Parent:            trace.SpanContextFromContext(parentContext),
+		SpanKind:          trace.SpanKindServer,
+		StartTime:         time.Time{},
+		EndTime:           time.Time{},
+		Attributes:        attributes,
+		Events:            nil,
+		Links:             nil,
+		Status:            sdktrace.Status{},
+		DroppedAttributes: 0,
+		DroppedEvents:     0,
+		DroppedLinks:      0,
+		ChildSpanCount:    0,
+		Resource: resource.NewWithAttributes(semconv.SchemaURL,
+			attribute.String("cloud.provider", "aws"),
+			attribute.String("cloud.region", "us-texas-1"),
+			attribute.String("faas.name", "testFunction"),
+			attribute.String("faas.version", "$LATEST")),
+		InstrumentationLibrary: instrumentation.Library{Name: "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda", Version: otellambda.SemVersion()},
+	}
+}
+
 // Vars for Tracing and TracingWithFlusher Tests.
 var (
 	mockLambdaContext = lambdacontext.LambdaContext{
@@ -121,36 +163,6 @@ var (
 			"X-Amzn-Trace-Id": []string{"Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1"},
 		})
 	expectedTraceID, _ = trace.TraceIDFromHex("5759e988bd862e3fe1be46a994272793")
-	expectedSpanStub   = tracetest.SpanStub{
-		Name: "testFunction",
-		SpanContext: trace.NewSpanContext(trace.SpanContextConfig{
-			TraceID:    expectedTraceID,
-			SpanID:     trace.SpanID{1},
-			TraceFlags: 1,
-			TraceState: trace.TraceState{},
-			Remote:     false,
-		}),
-		Parent:    trace.SpanContextFromContext(mockContext),
-		SpanKind:  trace.SpanKindServer,
-		StartTime: time.Time{},
-		EndTime:   time.Time{},
-		Attributes: []attribute.KeyValue{attribute.String("faas.execution", "123"),
-			attribute.String("faas.id", "arn:partition:service:region:account-id:resource-type:resource-id"),
-			attribute.String("cloud.account.id", "account-id")},
-		Events:            nil,
-		Links:             nil,
-		Status:            sdktrace.Status{},
-		DroppedAttributes: 0,
-		DroppedEvents:     0,
-		DroppedLinks:      0,
-		ChildSpanCount:    0,
-		Resource: resource.NewWithAttributes(semconv.SchemaURL,
-			attribute.String("cloud.provider", "aws"),
-			attribute.String("cloud.region", "us-texas-1"),
-			attribute.String("faas.name", "testFunction"),
-			attribute.String("faas.version", "$LATEST")),
-		InstrumentationLibrary: instrumentation.Library{Name: "go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda", Version: otellambda.SemVersion()},
-	}
 )
 
 func assertStubEqualsIgnoreTime(t *testing.T, expected tracetest.SpanStub, actual tracetest.SpanStub) {
@@ -188,7 +200,7 @@ func TestInstrumentHandlerTracing(t *testing.T) {
 
 	assert.Len(t, memExporter.GetSpans(), 1)
 	stub := memExporter.GetSpans()[0]
-	assertStubEqualsIgnoreTime(t, expectedSpanStub, stub)
+	assertStubEqualsIgnoreTime(t, getExpectedSpanStub(expectedTraceID, mockContext, faasRes), stub)
 }
 
 func TestWrapHandlerTracing(t *testing.T) {
@@ -202,7 +214,7 @@ func TestWrapHandlerTracing(t *testing.T) {
 
 	assert.Len(t, memExporter.GetSpans(), 1)
 	stub := memExporter.GetSpans()[0]
-	assertStubEqualsIgnoreTime(t, expectedSpanStub, stub)
+	assertStubEqualsIgnoreTime(t, getExpectedSpanStub(expectedTraceID, mockContext), stub)
 }
 
 type mockFlusher struct {
@@ -234,7 +246,7 @@ func TestInstrumentHandlerTracingWithFlusher(t *testing.T) {
 
 	assert.Len(t, memExporter.GetSpans(), 1)
 	stub := memExporter.GetSpans()[0]
-	assertStubEqualsIgnoreTime(t, expectedSpanStub, stub)
+	assertStubEqualsIgnoreTime(t, getExpectedSpanStub(expectedTraceID, mockContext, faasRes), stub)
 
 	assert.Equal(t, 1, flusher.flushCount)
 }
@@ -250,7 +262,7 @@ func TestWrapHandlerTracingWithFlusher(t *testing.T) {
 
 	assert.Len(t, memExporter.GetSpans(), 1)
 	stub := memExporter.GetSpans()[0]
-	assertStubEqualsIgnoreTime(t, expectedSpanStub, stub)
+	assertStubEqualsIgnoreTime(t, getExpectedSpanStub(expectedTraceID, mockContext), stub)
 
 	assert.Equal(t, 1, flusher.flushCount)
 }
@@ -309,36 +321,6 @@ var (
 		propagation.HeaderCarrier{mockPropagatorKey: []string{mockPropagatorTestsHeader}})
 
 	mockPropagatorTestsExpectedTraceID, _ = trace.TraceIDFromHex(mockPropagatorTestsTraceIDHex)
-	mockPropagatorTestsExpectedSpanStub   = tracetest.SpanStub{
-		Name: "testFunction",
-		SpanContext: trace.NewSpanContext(trace.SpanContextConfig{
-			TraceID:    mockPropagatorTestsExpectedTraceID,
-			SpanID:     trace.SpanID{1},
-			TraceFlags: 1,
-			TraceState: trace.TraceState{},
-			Remote:     false,
-		}),
-		Parent:    trace.SpanContextFromContext(mockPropagatorTestsContext),
-		SpanKind:  trace.SpanKindServer,
-		StartTime: time.Time{},
-		EndTime:   time.Time{},
-		Attributes: []attribute.KeyValue{attribute.String("faas.execution", "123"),
-			attribute.String("faas.id", "arn:partition:service:region:account-id:resource-type:resource-id"),
-			attribute.String("cloud.account.id", "account-id")},
-		Events:            nil,
-		Links:             nil,
-		Status:            sdktrace.Status{},
-		DroppedAttributes: 0,
-		DroppedEvents:     0,
-		DroppedLinks:      0,
-		ChildSpanCount:    0,
-		Resource: resource.NewWithAttributes(semconv.SchemaURL,
-			attribute.String("cloud.provider", "aws"),
-			attribute.String("cloud.region", "us-texas-1"),
-			attribute.String("faas.name", "testFunction"),
-			attribute.String("faas.version", "$LATEST")),
-		InstrumentationLibrary: instrumentation.Library{Name: "go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda", Version: otellambda.SemVersion()},
-	}
 )
 
 func mockRequestCarrier(eventJSON []byte) propagation.TextMapCarrier {
@@ -373,7 +355,7 @@ func TestInstrumentHandlerTracingWithMockPropagator(t *testing.T) {
 
 	assert.Len(t, memExporter.GetSpans(), 1)
 	stub := memExporter.GetSpans()[0]
-	assertStubEqualsIgnoreTime(t, mockPropagatorTestsExpectedSpanStub, stub)
+	assertStubEqualsIgnoreTime(t, getExpectedSpanStub(mockPropagatorTestsExpectedTraceID, mockPropagatorTestsContext, faasEvent, faasRes), stub)
 }
 
 func TestWrapHandlerTracingWithMockPropagator(t *testing.T) {
@@ -392,5 +374,5 @@ func TestWrapHandlerTracingWithMockPropagator(t *testing.T) {
 
 	assert.Len(t, memExporter.GetSpans(), 1)
 	stub := memExporter.GetSpans()[0]
-	assertStubEqualsIgnoreTime(t, mockPropagatorTestsExpectedSpanStub, stub)
+	assertStubEqualsIgnoreTime(t, getExpectedSpanStub(mockPropagatorTestsExpectedTraceID, mockPropagatorTestsContext, faasEvent), stub)
 }
