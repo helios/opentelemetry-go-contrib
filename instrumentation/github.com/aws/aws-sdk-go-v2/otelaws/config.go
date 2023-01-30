@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package otelaws // import "go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+package otelaws // import "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 
 import (
 	"go.opentelemetry.io/otel/propagation"

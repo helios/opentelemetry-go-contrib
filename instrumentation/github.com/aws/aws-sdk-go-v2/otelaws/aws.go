@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package otelaws // import "go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+package otelaws // import "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	tracerName = "go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	tracerName = "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 )
 
 type spanTimestampKey struct{}
@@ -66,15 +66,18 @@ func (m otelMiddlewares) initializeMiddlewareAfter(stack *middleware.Stack) erro
 			RegionAttr(v2Middleware.GetRegion(ctx)),
 			OperationAttr(v2Middleware.GetOperationName(ctx)),
 		}
-		for _, setter := range m.attributeSetter {
-			attributes = append(attributes, setter(ctx, in)...)
-		}
 
 		ctx, span := m.tracer.Start(ctx, serviceID,
 			trace.WithTimestamp(ctx.Value(spanTimestampKey{}).(time.Time)),
 			trace.WithSpanKind(trace.SpanKindClient),
-			trace.WithAttributes(attributes...),
 		)
+
+		for _, setter := range m.attributeSetter {
+			attributes = append(attributes, setter(ctx, in)...)
+		}
+
+		span.SetAttributes(attributes...)
+
 		defer span.End()
 
 		out, metadata, err = next.HandleInitialize(ctx, in)
