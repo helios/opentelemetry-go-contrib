@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
+	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -157,7 +158,8 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 		defer whf.instrumentor.tracingEnd(ctx, span)
 
 		if len(eventJSON) > 0 {
-			span.SetAttributes(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(eventJSON))})
+			faasEventAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(eventJSON))})
+			span.SetAttributes(faasEventAttribute)
 		}
 
 		handler := reflect.ValueOf(handlerFunc)
@@ -182,7 +184,8 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 				val := response[0].Interface()
 				strVal, success := val.(string)
 				if success {
-					span.SetAttributes(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(strVal)})
+					faasResAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(string(strVal))})
+					span.SetAttributes(faasResAttribute)
 				}
 			}
 		}

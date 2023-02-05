@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -38,7 +39,8 @@ func (h wrappedHandler) Invoke(ctx context.Context, payload []byte) ([]byte, err
 	defer h.instrumentor.tracingEnd(ctx, span)
 
 	if len(payload) > 0 {
-		span.SetAttributes(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(payload))})
+		faasEventAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(payload))})
+		span.SetAttributes(faasEventAttribute)
 	}
 
 	response, err := h.handler.Invoke(ctx, payload)
@@ -47,7 +49,8 @@ func (h wrappedHandler) Invoke(ctx context.Context, payload []byte) ([]byte, err
 	}
 
 	if len(response) > 0 {
-		span.SetAttributes(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(string(response))})
+		faasResAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(string(response))})
+		span.SetAttributes(faasResAttribute)
 	}
 
 	return response, nil
