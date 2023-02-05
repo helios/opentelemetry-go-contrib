@@ -10,14 +10,14 @@ replace (
 
 require (
 	github.com/aws/aws-lambda-go v1.37.0
-	github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda v0.37.0
+	github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/aws/aws-lambda-go/otellambda v0.1.0
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/contrib/detectors/aws/lambda v0.37.0
 	go.opentelemetry.io/contrib/propagators/aws v1.12.0
-	go.opentelemetry.io/otel v1.12.0
+	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
-	go.opentelemetry.io/otel/trace v1.12.0
+	go.opentelemetry.io/otel/trace v1.11.2
 	go.opentelemetry.io/proto/otlp v0.19.0
 	google.golang.org/grpc v1.52.0
 )
@@ -29,7 +29,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
-	github.com/helios/go-sdk/data-obfuscator v1.0.0 // indirect
+	github.com/helios/go-sdk/data-obfuscator v1.0.1 // indirect
 	github.com/ohler55/ojg v1.17.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.11.2 // indirect
