@@ -21,6 +21,7 @@ import (
 	"net/http/httptrace"
 	"os"
 
+	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -137,7 +138,8 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 
 	if !t.metadataOnly && len(bw.requestBody) > 0 {
-		span.SetAttributes(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+		span.SetAttributes(attr)
 	}
 
 	span.SetAttributes(semconv.HTTPAttributesFromHTTPStatusCode(res.StatusCode)...)
@@ -204,7 +206,8 @@ func (wb *wrappedBody) Read(b []byte) (int, error) {
 		// nothing to do here but fall through to the return
 	case io.EOF:
 		if !wb.metadataOnly && len(wb.responseBody) > 0 {
-			wb.span.SetAttributes(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(wb.responseBody))})
+			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(wb.responseBody))})
+			wb.span.SetAttributes(attr)
 		}
 
 		wb.span.End()

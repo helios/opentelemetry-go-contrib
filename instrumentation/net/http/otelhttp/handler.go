@@ -23,6 +23,7 @@ import (
 
 	"github.com/felixge/httpsnoop"
 
+	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -121,7 +122,8 @@ func (h *Handler) createMeasures() {
 func collectRequestHeaders(r *http.Request, span trace.Span) {
 	headersStr, err := json.Marshal(r.Header)
 	if err == nil {
-		span.SetAttributes(attribute.KeyValue{Key: "http.request.headers", Value: attribute.StringValue(string(headersStr))})
+		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.headers", Value: attribute.StringValue(string(headersStr))})
+		span.SetAttributes(attr)
 	}
 }
 
@@ -227,11 +229,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !metadataOnly {
 		collectRequestHeaders(r, span)
 		if len(bw.requestBody) > 0 {
-			span.SetAttributes(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+			span.SetAttributes(attr)
 		}
 
 		if len(rww.responseBody) > 0 {
-			span.SetAttributes(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rww.responseBody))})
+			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rww.responseBody))})
+			span.SetAttributes(attr)
 		}
 	}
 
