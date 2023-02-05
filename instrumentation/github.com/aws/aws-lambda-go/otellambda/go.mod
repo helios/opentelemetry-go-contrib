@@ -13,7 +13,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/helios/go-sdk/data-obfuscator v0.0.0-20230205121102-fec4bb52140b // indirect
+	github.com/helios/go-sdk/data-obfuscator v1.0.0
 	github.com/ohler55/ojg v1.17.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9 // indirect
