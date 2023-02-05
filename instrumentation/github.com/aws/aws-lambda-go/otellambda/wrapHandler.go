@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"go.opentelemetry.io/otel/attribute"
+	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 )
 
 // wrappedHandler is a struct which holds an instrumentor
@@ -38,7 +39,8 @@ func (h wrappedHandler) Invoke(ctx context.Context, payload []byte) ([]byte, err
 	defer h.instrumentor.tracingEnd(ctx, span)
 
 	if len(payload) > 0 {
-		span.SetAttributes(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(payload))})
+		faasEventAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(payload))})
+		span.SetAttributes(faasEventAttribute)
 	}
 
 	response, err := h.handler.Invoke(ctx, payload)
