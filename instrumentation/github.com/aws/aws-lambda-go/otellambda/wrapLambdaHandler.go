@@ -184,7 +184,8 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 				val := response[0].Interface()
 				strVal, success := val.(string)
 				if success {
-					span.SetAttributes(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(strVal)})
+					faasResAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(string(strVal))})
+					span.SetAttributes(faasResAttribute)
 				}
 			}
 		}
