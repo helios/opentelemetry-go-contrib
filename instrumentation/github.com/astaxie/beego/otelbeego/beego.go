@@ -20,8 +20,8 @@ import (
 
 	"go.opentelemetry.io/otel/codes"
 
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/astaxie/beego/otelbeego/internal"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/astaxie/beego"

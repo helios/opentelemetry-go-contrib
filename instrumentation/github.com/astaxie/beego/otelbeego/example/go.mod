@@ -3,9 +3,8 @@ module go.opentelemetry.io/contrib/instrumentation/github.com/astaxie/beego/otel
 go 1.18
 
 replace (
+	github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp => ../../../../../net/http/otelhttp
 	go.opentelemetry.io/contrib/instrumentation/github.com/astaxie/beego/otelbeego => ../
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp => ../../../../../net/http/otelhttp
-
 )
 
 require (
@@ -25,17 +24,20 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/helios/go-sdk/data-obfuscator v1.0.1 // indirect
+	github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp v0.1.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/ohler55/ojg v1.17.4 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/shiena/ansicolor v0.0.0-20151119151921-a422bbe96644 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0 // indirect
 	go.opentelemetry.io/otel/metric v0.34.0 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
+	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

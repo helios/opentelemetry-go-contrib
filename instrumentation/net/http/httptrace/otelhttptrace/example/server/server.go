@@ -20,7 +20,7 @@ import (
 	"log"
 	"net/http"
 
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

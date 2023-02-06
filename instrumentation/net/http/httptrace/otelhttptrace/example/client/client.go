@@ -24,8 +24,8 @@ import (
 	"net/http/httptrace"
 	"time"
 
+	"github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/baggage"
