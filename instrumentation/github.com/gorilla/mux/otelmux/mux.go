@@ -220,7 +220,6 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
 			span.SetAttributes(attr)
 		}
-
 	}
 
 	attrs := semconv.HTTPAttributesFromHTTPStatusCode(rrw.status)
