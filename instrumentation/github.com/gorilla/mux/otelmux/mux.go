@@ -15,6 +15,7 @@
 package otelmux // import "go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -98,6 +99,13 @@ func Middleware(service string, opts ...Option) mux.MiddlewareFunc {
 	}
 }
 
+func collectRequestHeaders(r *http.Request, span oteltrace.Span) {
+	headersStr, err := json.Marshal(r.Header)
+	if err == nil {
+		span.SetAttributes(attribute.KeyValue{Key: "http.request.headers", Value: attribute.StringValue(string(headersStr))})
+	}
+}
+
 type traceware struct {
 	service           string
 	tracer            oteltrace.Tracer
@@ -107,9 +115,11 @@ type traceware struct {
 }
 
 type recordingResponseWriter struct {
-	writer  http.ResponseWriter
-	written bool
-	status  int
+	writer       http.ResponseWriter
+	written      bool
+	status       int
+	responseBody []byte
+	metadataOnly bool
 }
 
 var rrwPool = &sync.Pool{
@@ -118,8 +128,9 @@ var rrwPool = &sync.Pool{
 	},
 }
 
-func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
+func getRRW(writer http.ResponseWriter, metadataOnly bool) *recordingResponseWriter {
 	rrw := rrwPool.Get().(*recordingResponseWriter)
+	rrw.metadataOnly = metadataOnly
 	rrw.written = false
 	rrw.status = http.StatusOK
 	rrw.writer = httpsnoop.Wrap(writer, httpsnoop.Hooks{
@@ -127,6 +138,9 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 			return func(b []byte) (int, error) {
 				if !rrw.written {
 					rrw.written = true
+				}
+				if !rrw.metadataOnly && len(b) > 0 {
+					rrw.responseBody = append(rrw.responseBody, b...)
 				}
 				return next(b)
 			}
@@ -180,7 +194,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	spanName := tw.spanNameFormatter(routeStr, r)
 	metadataOnly := os.Getenv("HS_METADATA_ONLY") == "true"
-	
+
 	var bw bodyWrapper
 	if r.Body != nil && r.Body != http.NoBody {
 		bw.ReadCloser = r.Body
@@ -190,14 +204,23 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tw.tracer.Start(ctx, spanName, opts...)
 	defer span.End()
 	r2 := r.WithContext(ctx)
-	rrw := getRRW(w)
+	rrw := getRRW(w, metadataOnly)
 	defer putRRW(rrw)
 	tw.handler.ServeHTTP(rrw.writer, r2)
 	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCodeAndSpanKind(rrw.status, oteltrace.SpanKindServer)
 
-	if !metadataOnly && len(bw.requestBody) > 0 {
-		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
-		span.SetAttributes(attr)
+	if !metadataOnly {
+		collectRequestHeaders(r, span)
+		if len(bw.requestBody) > 0 {
+			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+			span.SetAttributes(attr)
+		}
+
+		if len(rrw.responseBody) > 0 {
+			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
+			span.SetAttributes(attr)
+		}
+
 	}
 
 	attrs := semconv.HTTPAttributesFromHTTPStatusCode(rrw.status)
