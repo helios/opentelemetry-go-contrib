@@ -43,8 +43,6 @@ var _ io.ReadCloser = &bodyWrapper{}
 // of bytes read and the last error.
 type bodyWrapper struct {
 	io.ReadCloser
-	record func(n int64) // must not be nil
-
 	read         int64
 	err          error
 	requestBody  []byte
@@ -61,7 +59,6 @@ func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n1 := int64(n)
 	w.read += n1
 	w.err = err
-	w.record(n1)
 	return n, err
 }
 
@@ -187,7 +184,6 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var bw bodyWrapper
 	if r.Body != nil && r.Body != http.NoBody {
 		bw.ReadCloser = r.Body
-		bw.record = func(int64) {}
 		bw.metadataOnly = metadataOnly
 		r.Body = &bw
 	}
@@ -199,11 +195,11 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tw.handler.ServeHTTP(rrw.writer, r2)
 	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCodeAndSpanKind(rrw.status, oteltrace.SpanKindServer)
 
-	if metadataOnly && len(bw.requestBody) > 0 {
+	if !metadataOnly && len(bw.requestBody) > 0 {
 		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
 		span.SetAttributes(attr)
 	}
-	
+
 	attrs := semconv.HTTPAttributesFromHTTPStatusCode(rrw.status)
 	span.SetAttributes(attrs...)
 	span.SetStatus(spanStatus, spanMessage)
