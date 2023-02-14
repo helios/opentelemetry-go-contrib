@@ -138,6 +138,11 @@ func TestHandlerBasics(t *testing.T) {
 		t.Fatalf("invalid span created: %#v", spans[0].SpanContext())
 	}
 
+	span := spans[0]
+	traceresponse := rr.Header().Get("traceresponse")
+	expectedTraceresponse := fmt.Sprintf("00-%s-%s-01", span.SpanContext().TraceID().String(), span.SpanContext().SpanID().String())
+	assert.Equal(t, traceresponse, expectedTraceresponse)
+
 	d, err := io.ReadAll(rr.Result().Body)
 	if err != nil {
 		t.Fatal(err)

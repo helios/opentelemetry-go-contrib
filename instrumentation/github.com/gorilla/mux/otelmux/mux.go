@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	tracerName = "go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	tracerName = "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/gorilla/mux/otelmux"
 )
 
 var _ io.ReadCloser = &bodyWrapper{}
@@ -206,6 +206,13 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r2 := r.WithContext(ctx)
 	rrw := getRRW(w, metadataOnly)
 	defer putRRW(rrw)
+
+	// Add traceresponse header
+	if span.IsRecording() {
+		spanCtx := span.SpanContext()
+		rrw.writer.Header().Add("traceresponse", fmt.Sprintf("00-%s-%s-01", spanCtx.TraceID().String(), spanCtx.SpanID().String()))
+	}
+
 	tw.handler.ServeHTTP(rrw.writer, r2)
 	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCodeAndSpanKind(rrw.status, oteltrace.SpanKindServer)
 
