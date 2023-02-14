@@ -16,6 +16,7 @@ package otelhttp // import "github.com/helios/opentelemetry-go-contrib/instrumen
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -202,6 +203,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		statusCode:     200, // default status code in case the Handler doesn't write anything
 		metadataOnly:   metadataOnly,
 		responseBody:   []byte{},
+	}
+
+	// Add traceresponse header
+	if span.IsRecording() {
+		spanCtx := span.SpanContext()
+		rww.Header().Add("traceresponse", fmt.Sprintf("00-%s-%s-01", spanCtx.TraceID().String(), spanCtx.SpanID().String()))
 	}
 
 	// Wrap w to use our ResponseWriter methods while also exposing

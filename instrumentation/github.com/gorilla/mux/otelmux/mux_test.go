@@ -207,6 +207,9 @@ func TestCustomSpanNameFormatter(t *testing.T) {
 			assert.Equal(t, d.expected, spans[0].Name)
 
 			exporter.Reset()
+			traceresponse := w.Header().Get("traceresponse")
+			expectedTraceresponse := fmt.Sprintf("00-%s-%s-01", spans[0].SpanContext.TraceID().String(), spans[0].SpanContext.SpanID().String())
+			assert.Equal(t, traceresponse, expectedTraceresponse)
 		})
 	}
 }
