@@ -12,16 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package otelecho // import "go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+package otelecho // import "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/labstack/echo/otelecho"
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"sync"
 
+	"github.com/felixge/httpsnoop"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
 	"go.opentelemetry.io/otel"
 
+	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
@@ -30,8 +37,96 @@ import (
 
 const (
 	tracerKey  = "otel-go-contrib-tracer-labstack-echo"
-	tracerName = "go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	tracerName = "github.com/helios/opentelemetry-go-contrib/instrumentation/github.com/labstack/echo/otelecho"
 )
+
+var _ io.ReadCloser = &bodyWrapper{}
+
+// bodyWrapper wraps a http.Request.Body (an io.ReadCloser) to track the number
+// of bytes read and the last error.
+type bodyWrapper struct {
+	io.ReadCloser
+	read         int64
+	err          error
+	requestBody  []byte
+	metadataOnly bool
+}
+
+func (w *bodyWrapper) Read(b []byte) (int, error) {
+	n, err := w.ReadCloser.Read(b)
+	if n > 0 {
+		if !w.metadataOnly {
+			w.requestBody = append(w.requestBody, b[0:n]...)
+		}
+	}
+	n1 := int64(n)
+	w.read += n1
+	w.err = err
+	return n, err
+}
+
+func (w *bodyWrapper) Close() error {
+	return w.ReadCloser.Close()
+}
+
+type recordingResponseWriter struct {
+	writer       http.ResponseWriter
+	written      bool
+	status       int
+	responseBody []byte
+	metadataOnly bool
+}
+
+var rrwPool = &sync.Pool{
+	New: func() interface{} {
+		return &recordingResponseWriter{}
+	},
+}
+
+func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
+	rrw := rrwPool.Get().(*recordingResponseWriter)
+	rrw.written = false
+	rrw.status = 0
+	rrw.responseBody = []byte{}
+	rrw.writer = httpsnoop.Wrap(writer, httpsnoop.Hooks{
+		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
+			return func(b []byte) (int, error) {
+				if !rrw.written {
+					rrw.written = true
+					rrw.status = http.StatusOK
+				}
+
+				if !rrw.metadataOnly && len(b) > 0 {
+					rrw.responseBody = append(rrw.responseBody, b...)
+				}
+
+				return next(b)
+			}
+		},
+		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+			return func(statusCode int) {
+				if !rrw.written {
+					rrw.written = true
+					rrw.status = statusCode
+				}
+				next(statusCode)
+			}
+		},
+	})
+	return rrw
+}
+
+func putRRW(rrw *recordingResponseWriter) {
+	rrw.writer = nil
+	rrwPool.Put(rrw)
+}
+
+func collectRequestHeaders(r *http.Request, span oteltrace.Span) {
+	headersStr, err := json.Marshal(r.Header)
+	if err == nil {
+		span.SetAttributes(attribute.KeyValue{Key: "http.request.headers", Value: attribute.StringValue(string(headersStr))})
+	}
+}
 
 // Middleware returns echo middleware which will trace incoming requests.
 func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
@@ -62,10 +157,12 @@ func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
 
 			c.Set(tracerKey, tracer)
 			request := c.Request()
+			response := c.Response()
 			savedCtx := request.Context()
 			defer func() {
 				request = request.WithContext(savedCtx)
 				c.SetRequest(request)
+				c.SetResponse(response)
 			}()
 			ctx := cfg.Propagators.Extract(savedCtx, propagation.HeaderCarrier(request.Header))
 			opts := []oteltrace.SpanStartOption{
@@ -78,12 +175,23 @@ func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
 			if spanName == "" {
 				spanName = fmt.Sprintf("HTTP %s route not found", request.Method)
 			}
+			metadataOnly := os.Getenv("HS_METADATA_ONLY") == "true"
+			var bw bodyWrapper
+			if request.Body != nil && request.Body != http.NoBody {
+				bw.ReadCloser = request.Body
+				bw.metadataOnly = metadataOnly
+				request.Body = &bw
+			}
 
 			ctx, span := tracer.Start(ctx, spanName, opts...)
 			defer span.End()
+			rrw := getRRW(response)
+			rrw.metadataOnly = metadataOnly
+			defer putRRW(rrw)
 
 			// pass the span through the request context
 			c.SetRequest(request.WithContext(ctx))
+			c.SetResponse(echo.NewResponse(rrw.writer, c.Echo()))
 
 			// serve the request to the next middleware
 			err := next(c)
@@ -97,6 +205,19 @@ func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
 			spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCodeAndSpanKind(c.Response().Status, oteltrace.SpanKindServer)
 			span.SetAttributes(attrs...)
 			span.SetStatus(spanStatus, spanMessage)
+
+			if !metadataOnly {
+				collectRequestHeaders(request, span)
+				if len(bw.requestBody) > 0 {
+					attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+					span.SetAttributes(attr)
+				}
+
+				if len(rrw.responseBody) > 0 {
+					attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
+					span.SetAttributes(attr)
+				}
+			}
 
 			return nil
 		}
