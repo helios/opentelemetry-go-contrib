@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"os"
 	"time"
@@ -129,6 +128,14 @@ func collectRequestHeaders(r *http.Request, span trace.Span) {
 	}
 }
 
+// func collectResponseHeaders(w *http.ResponseWriter, span trace.Span) {
+// 	headersStr, err := json.Marshal(w.headersStr)
+// 	if err == nil {
+// 		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.headers", Value: attribute.StringValue(string(headersStr))})
+// 		span.SetAttributes(attr)
+// 	}
+// }
+
 // ServeHTTP serves HTTP requests (http.Handler).
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestStartTime := time.Now()
@@ -183,14 +190,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// will affect the identity of it in an unforeseeable way because we assert
 	// ReadCloser fulfills a certain interface and it is indeed nil or NoBody.
 	if r.Body != nil && r.Body != http.NoBody {
-		contentType := r.Header.Get("Content-type")
-
-		mediatype, params, err := mime.ParseMediaType(contentType)
-		if err == nil {
-			fmt.Println(params)
-			bw.contentType = mediatype
-		}
-		
+		bw.contentType = r.Header.Get("Content-type")		
 		bw.ReadCloser = r.Body
 		bw.record = readRecordFunc
 		bw.metadataOnly = metadataOnly
@@ -204,6 +204,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	respContentType := w.Header().Get("Content-Type")
 	rww := &respWriterWrapper{
 		ResponseWriter: w,
 		record:         writeRecordFunc,
@@ -212,6 +213,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		statusCode:     200, // default status code in case the Handler doesn't write anything
 		metadataOnly:   metadataOnly,
 		responseBody:   []byte{},
+		contentType:    respContentType,
 	}
 
 	// Add traceresponse header
@@ -249,6 +251,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			span.SetAttributes(attr)
 		}
 
+		// collectResponseHeaders(w, span)
 		if len(rww.responseBody) > 0 {
 			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rww.responseBody))})
 			span.SetAttributes(attr)
