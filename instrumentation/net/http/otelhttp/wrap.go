@@ -34,6 +34,7 @@ type bodyWrapper struct {
 	err          error
 	requestBody  []byte
 	metadataOnly bool
+	contentType  string
 }
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
@@ -77,6 +78,7 @@ type respWriterWrapper struct {
 
 	responseBody []byte
 	metadataOnly bool
+	contentType string
 }
 
 func (w *respWriterWrapper) Header() http.Header {
