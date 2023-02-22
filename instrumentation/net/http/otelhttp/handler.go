@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"time"
@@ -183,7 +184,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// ReadCloser fulfills a certain interface and it is indeed nil or NoBody.
 	if r.Body != nil && r.Body != http.NoBody {
 		contentType := r.Header.Get("Content-type")
-		bw.contentType = contentType
+
+		mediatype, params, err := mime.ParseMediaType(contentType)
+		if err == nil {
+			fmt.Println(params)
+			bw.contentType = mediatype
+		}
+		
 		bw.ReadCloser = r.Body
 		bw.record = readRecordFunc
 		bw.metadataOnly = metadataOnly
