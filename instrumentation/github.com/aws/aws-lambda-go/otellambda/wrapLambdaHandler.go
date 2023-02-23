@@ -22,6 +22,7 @@ import (
 
 	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // wrappedHandlerFunction is a struct which only holds an instrumentor and is
@@ -151,6 +152,11 @@ func InstrumentHandler(handlerFunc interface{}, options ...Option) interface{} {
 	}
 }
 
+func obfuscateAndSetAttribute(span *trace.Span, attributeKey string, attributeValue string) {
+	faasEventAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: attribute.Key(attributeKey), Value: attribute.StringValue(attributeValue)})
+	(*span).SetAttributes(faasEventAttribute)
+}
+
 // Adds OTel span surrounding customer handler call.
 func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx context.Context, eventJSON []byte, event interface{}, takesContext bool) []reflect.Value {
 	return func(ctx context.Context, eventJSON []byte, event interface{}, takesContext bool) []reflect.Value {
@@ -158,8 +164,7 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 		defer whf.instrumentor.tracingEnd(ctx, span)
 
 		if len(eventJSON) > 0 {
-			faasEventAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.event", Value: attribute.StringValue(string(eventJSON))})
-			span.SetAttributes(faasEventAttribute)
+			obfuscateAndSetAttribute(&span, "faas.event", string(eventJSON))
 		}
 
 		handler := reflect.ValueOf(handlerFunc)
@@ -184,8 +189,12 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 				val := response[0].Interface()
 				strVal, success := val.(string)
 				if success {
-					faasResAttribute := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "faas.res", Value: attribute.StringValue(string(strVal))})
-					span.SetAttributes(faasResAttribute)
+					obfuscateAndSetAttribute(&span, "faas.res", string(strVal))
+				} else {
+					parsedVal, err := json.Marshal(val)
+					if err == nil {
+						obfuscateAndSetAttribute(&span, "faas.res", string(parsedVal))
+					}
 				}
 			}
 		}
