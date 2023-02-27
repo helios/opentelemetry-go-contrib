@@ -133,6 +133,7 @@ func getRRW(writer http.ResponseWriter, metadataOnly bool) *recordingResponseWri
 	rrw.metadataOnly = metadataOnly
 	rrw.written = false
 	rrw.status = http.StatusOK
+	rrw.responseBody = []byte{}
 	rrw.writer = httpsnoop.Wrap(writer, httpsnoop.Hooks{
 		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
 			return func(b []byte) (int, error) {
