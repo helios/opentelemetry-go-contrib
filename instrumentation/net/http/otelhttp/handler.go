@@ -182,6 +182,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// will affect the identity of it in an unforeseeable way because we assert
 	// ReadCloser fulfills a certain interface and it is indeed nil or NoBody.
 	if r.Body != nil && r.Body != http.NoBody {
+		bw.contentType = r.Header.Get("Content-type")
 		bw.ReadCloser = r.Body
 		bw.record = readRecordFunc
 		bw.metadataOnly = metadataOnly

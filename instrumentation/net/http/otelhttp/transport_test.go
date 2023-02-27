@@ -282,7 +282,7 @@ func TestWrappedBodyClose(t *testing.T) {
 func TestWrappedBodyClosePanic(t *testing.T) {
 	s := new(span)
 	var body io.ReadCloser
-	wb := newWrappedBody(s, body, false)
+	wb := newWrappedBody(s, body, false, "")
 	assert.NotPanics(t, func() { wb.Close() }, "nil body should not panic on close")
 }
 
@@ -307,12 +307,12 @@ func (rwc readWriteCloser) Write([]byte) (int, error) {
 }
 
 func TestNewWrappedBodyReadWriteCloserImplementation(t *testing.T) {
-	wb := newWrappedBody(nil, readWriteCloser{}, false)
+	wb := newWrappedBody(nil, readWriteCloser{}, false, "")
 	assert.Implements(t, (*io.ReadWriteCloser)(nil), wb)
 }
 
 func TestNewWrappedBodyReadCloserImplementation(t *testing.T) {
-	wb := newWrappedBody(nil, readCloser{}, false)
+	wb := newWrappedBody(nil, readCloser{}, false, "")
 	assert.Implements(t, (*io.ReadCloser)(nil), wb)
 
 	_, ok := wb.(io.ReadWriteCloser)
@@ -323,7 +323,7 @@ func TestWrappedBodyWrite(t *testing.T) {
 	s := new(span)
 	var rwc io.ReadWriteCloser
 	assert.NotPanics(t, func() {
-		rwc = newWrappedBody(s, readWriteCloser{}, false).(io.ReadWriteCloser)
+		rwc = newWrappedBody(s, readWriteCloser{}, false, "").(io.ReadWriteCloser)
 	})
 
 	n, err := rwc.Write([]byte{})
@@ -339,7 +339,7 @@ func TestWrappedBodyWriteError(t *testing.T) {
 	assert.NotPanics(t, func() {
 		rwc = newWrappedBody(s, readWriteCloser{
 			writeErr: expectedErr,
-		}, false).(io.ReadWriteCloser)
+		}, false, "").(io.ReadWriteCloser)
 	})
 	n, err := rwc.Write([]byte{})
 	assert.Equal(t, writeSize, n, "wrappedBody returned wrong bytes")
