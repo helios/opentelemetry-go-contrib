@@ -128,14 +128,6 @@ func collectRequestHeaders(r *http.Request, span trace.Span) {
 	}
 }
 
-// func collectResponseHeaders(w *http.ResponseWriter, span trace.Span) {
-// 	headersStr, err := json.Marshal(w.headersStr)
-// 	if err == nil {
-// 		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.headers", Value: attribute.StringValue(string(headersStr))})
-// 		span.SetAttributes(attr)
-// 	}
-// }
-
 // ServeHTTP serves HTTP requests (http.Handler).
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestStartTime := time.Now()
@@ -249,7 +241,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			span.SetAttributes(attr)
 		}
 
-		// collectResponseHeaders(w, span)
 		if len(rww.responseBody) > 0 {
 			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rww.responseBody))})
 			span.SetAttributes(attr)
