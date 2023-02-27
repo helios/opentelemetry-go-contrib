@@ -82,7 +82,6 @@ type respWriterWrapper struct {
 
 	responseBody []byte
 	metadataOnly bool
-	contentType string
 }
 
 func (w *respWriterWrapper) Header() http.Header {
