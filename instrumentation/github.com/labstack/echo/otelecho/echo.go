@@ -18,20 +18,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"golang.org/x/exp/slices"
 
 	"go.opentelemetry.io/otel"
 
-	obfuscator "github.com/helios/go-sdk/data-obfuscator"
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
@@ -59,7 +56,7 @@ type bodyWrapper struct {
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
 	if n > 0 {
-		shouldSkipContentByType, _ := shouldSkipResponseContentByType(w.contentType)
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(w.contentType)
 		if !w.metadataOnly && !shouldSkipContentByType {
 			w.requestBody = append(w.requestBody, b[0:n]...)
 		}
@@ -102,7 +99,7 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 				}
 
 				respContentType := writer.Header().Get("Content-Type")
-				shouldSkipContentByType, _ := shouldSkipResponseContentByType(respContentType)
+				shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(respContentType)
 				if !rrw.metadataOnly && !shouldSkipContentByType && len(b) > 0 {
 					rrw.responseBody = append(rrw.responseBody, b...)
 				}
@@ -216,12 +213,12 @@ func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
 			if !metadataOnly {
 				collectRequestHeaders(request, span)
 				if len(bw.requestBody) > 0 {
-					attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+					attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
 					span.SetAttributes(attr)
 				}
 
 				if len(rrw.responseBody) > 0 {
-					attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
+					attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
 					span.SetAttributes(attr)
 				}
 			}
@@ -229,32 +226,4 @@ func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
 			return nil
 		}
 	}
-}
-
-var excludedTypes = []string{	"audio", "image", "multipart", "video" }
-var excludedTextSubTypes = []string{	"css", "html", "javascript" }
-var excludedApplicationSubTypes = []string{	"javascript" }
-
-func shouldSkipResponseContentByType(contentType string) (bool, error) {
-	if contentType == "" {
-		return false, nil
-	}
-
-	mediaType, _, err := mime.ParseMediaType(contentType)
-	if err != nil {
-		return true, err
-	}
-
-	mainType, subType, _ := strings.Cut(mediaType, "/")
-
-	if slices.Contains(excludedTypes, mainType) {
-		return true, nil;
-	}
-
-	if (mainType == "text" && (slices.Contains(excludedTextSubTypes, subType) || strings.HasPrefix(subType, "vnd"))) ||
-		(mainType == "application" && slices.Contains(excludedApplicationSubTypes, subType)) {
-		return true, nil;
-	}
-
-	return false, nil;
 }
