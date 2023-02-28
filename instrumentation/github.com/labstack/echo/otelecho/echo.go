@@ -18,13 +18,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"golang.org/x/exp/slices"
 
 	"go.opentelemetry.io/otel"
 
@@ -50,12 +53,14 @@ type bodyWrapper struct {
 	err          error
 	requestBody  []byte
 	metadataOnly bool
+	contentType  string
 }
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
 	if n > 0 {
-		if !w.metadataOnly {
+		shouldSkipContentByType, _ := shouldSkipResponseContentByType(w.contentType)
+		if !w.metadataOnly && !shouldSkipContentByType {
 			w.requestBody = append(w.requestBody, b[0:n]...)
 		}
 	}
@@ -96,7 +101,9 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 					rrw.status = http.StatusOK
 				}
 
-				if !rrw.metadataOnly && len(b) > 0 {
+				respContentType := writer.Header().Get("Content-Type")
+				shouldSkipContentByType, _ := shouldSkipResponseContentByType(respContentType)
+				if !rrw.metadataOnly && !shouldSkipContentByType && len(b) > 0 {
 					rrw.responseBody = append(rrw.responseBody, b...)
 				}
 
@@ -222,4 +229,32 @@ func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
 			return nil
 		}
 	}
+}
+
+var excludedTypes = []string{	"audio", "image", "multipart", "video" }
+var excludedTextSubTypes = []string{	"css", "html", "javascript" }
+var excludedApplicationSubTypes = []string{	"javascript" }
+
+func shouldSkipResponseContentByType(contentType string) (bool, error) {
+	if contentType == "" {
+		return false, nil
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return true, err
+	}
+
+	mainType, subType, _ := strings.Cut(mediaType, "/")
+
+	if slices.Contains(excludedTypes, mainType) {
+		return true, nil;
+	}
+
+	if (mainType == "text" && (slices.Contains(excludedTextSubTypes, subType) || strings.HasPrefix(subType, "vnd"))) ||
+		(mainType == "application" && slices.Contains(excludedApplicationSubTypes, subType)) {
+		return true, nil;
+	}
+
+	return false, nil;
 }
