@@ -9,10 +9,12 @@ require (
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/sdk v1.11.2
 	go.opentelemetry.io/otel/trace v1.11.2
-	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9
 )
 
-require github.com/ohler55/ojg v1.17.4 // indirect
+require (
+	github.com/ohler55/ojg v1.17.4 // indirect
+	golang.org/x/exp v0.0.0-20230203172020-98cc5a0785f9 // indirect
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

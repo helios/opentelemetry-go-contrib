@@ -18,7 +18,7 @@ import (
 	"context"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	obfuscator "github.com/helios/go-sdk/data-obfuscator"
+	obfuscator "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel/attribute"
 )
 
