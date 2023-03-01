@@ -198,9 +198,9 @@ func (wb *wrappedBody) Write(p []byte) (int, error) {
 func (wb *wrappedBody) Read(b []byte) (int, error) {
 	n, err := wb.body.Read(b)
 
-	if n > 0 && len(b) >= n {
+	if n > 0 && len(b) >= n && !wb.metadataOnly {
 		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(wb.contentType)
-		if !wb.metadataOnly && !shouldSkipContentByType {
+		if !shouldSkipContentByType {
 			wb.responseBody = append(wb.responseBody, b[0:n]...)
 		}
 	}

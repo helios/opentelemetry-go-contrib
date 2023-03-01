@@ -55,9 +55,9 @@ type bodyWrapper struct {
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
-	if n > 0 {
+	if n > 0 && !w.metadataOnly {
 		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(w.contentType)
-		if !w.metadataOnly && !shouldSkipContentByType {
+		if !shouldSkipContentByType {
 			w.requestBody = append(w.requestBody, b[0:n]...)
 		}
 	}
@@ -98,10 +98,12 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 					rrw.status = http.StatusOK
 				}
 
-				respContentType := writer.Header().Get("Content-Type")
-				shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(respContentType)
-				if !rrw.metadataOnly && !shouldSkipContentByType && len(b) > 0 {
-					rrw.responseBody = append(rrw.responseBody, b...)
+				if !rrw.metadataOnly && len(b) > 0 {
+					respContentType := writer.Header().Get("Content-Type")
+					shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(respContentType)
+					if !shouldSkipContentByType {
+						rrw.responseBody = append(rrw.responseBody, b...)
+					}
 				}
 
 				return next(b)
