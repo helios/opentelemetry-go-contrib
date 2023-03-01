@@ -11,8 +11,8 @@ github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre
 github.com/golang-jwt/jwt v3.2.2+incompatible h1:IfV12K8xAKAnZqdXVzCZ+TOjboZ2keLg81eXfW3O+oY=
 github.com/golang-jwt/jwt v3.2.2+incompatible/go.mod h1:8pz2t5EyA70fFQQSrl6XZXzqecmYZeUEB8OUGHkxJ+I=
 github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
-github.com/helios/go-sdk/data-obfuscator v1.0.1 h1:cNqAe+fhMBp/jWrSy1VPywVWx4FHjo4eBGvvp0yTw88=
-github.com/helios/go-sdk/data-obfuscator v1.0.1/go.mod h1:n3MuH/koBrEvdddLC06KXNBcInOv96yNkgLMa/pVJ1M=
+github.com/helios/go-sdk/data-utils v1.0.2 h1:W9+RYM5Xdlatq23YqD4B1eSVWW6lqlR4lZ+ijhhzSw0=
+github.com/helios/go-sdk/data-utils v1.0.2/go.mod h1:tTs/9gPHFAtfo2SkkG9KbXwRP3u0qEEO3xYv1ZPaf3g=
 github.com/labstack/echo/v4 v4.10.0 h1:5CiyngihEO4HXsz3vVsJn7f8xAlWwRr3aY6Ih280ZKA=
 github.com/labstack/echo/v4 v4.10.0/go.mod h1:S/T/5fy/GigaXnHTkh0ZGe4LpkkQysvRjFMSUTkDRNQ=
 github.com/labstack/gommon v0.4.0 h1:y7cvthEAEbU0yHOf4axH8ZG2NH8knB9iNSoTO8dyIk8=

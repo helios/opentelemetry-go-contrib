@@ -17,12 +17,10 @@ package otelhttp // import "github.com/helios/opentelemetry-go-contrib/instrumen
 import (
 	"context"
 	"io"
-	"mime"
 	"net/http"
-	"strings"
 
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel/propagation"
-	"golang.org/x/exp/slices"
 )
 
 var _ io.ReadCloser = &bodyWrapper{}
@@ -42,9 +40,9 @@ type bodyWrapper struct {
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
-	if n > 0 {
-		shouldSkipContentByType, _ := shouldSkipResponseContentByType(w.contentType)
-		if !w.metadataOnly && !shouldSkipContentByType {
+	if n > 0 && !w.metadataOnly {
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(w.contentType)
+		if !shouldSkipContentByType {
 			w.requestBody = append(w.requestBody, b[0:n]...)
 		}
 	}
@@ -93,11 +91,13 @@ func (w *respWriterWrapper) Write(p []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 	n, err := w.ResponseWriter.Write(p)
-	respContentType := w.Header().Get("Content-Type")
-	shouldSkipContentByType, _ := shouldSkipResponseContentByType(respContentType)
 	
-	if !w.metadataOnly && !shouldSkipContentByType && len(p) > 0 {
-		w.responseBody = append(w.responseBody, p...)
+	if !w.metadataOnly && len(p) > 0 {
+		respContentType := w.Header().Get("Content-Type")
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(respContentType)
+		if !shouldSkipContentByType {
+			w.responseBody = append(w.responseBody, p...)
+		}
 	}
 	n1 := int64(n)
 	w.record(n1)
@@ -113,32 +113,4 @@ func (w *respWriterWrapper) WriteHeader(statusCode int) {
 	w.wroteHeader = true
 	w.statusCode = statusCode
 	w.ResponseWriter.WriteHeader(statusCode)
-}
-
-var excludedTypes = []string{	"audio", "image", "multipart", "video" }
-var excludedTextSubTypes = []string{	"css", "html", "javascript" }
-var excludedApplicationSubTypes = []string{	"javascript" }
-
-func shouldSkipResponseContentByType(contentType string) (bool, error) {
-	if contentType == "" {
-		return false, nil
-	}
-
-	mediaType, _, err := mime.ParseMediaType(contentType) 
-	if err != nil {
-		return true, err
-	}
-	
-	mainType, subType, _ := strings.Cut(mediaType, "/")
-
-	if slices.Contains(excludedTypes, mainType) {
-		return true, nil;
-	}
-
-	if (mainType == "text" && (slices.Contains(excludedTextSubTypes, subType) || strings.HasPrefix(subType, "vnd"))) ||
-		(mainType == "application" && slices.Contains(excludedApplicationSubTypes, subType)) {
-		return true, nil;
-	}
-
-	return false, nil;
 }

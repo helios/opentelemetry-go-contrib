@@ -21,7 +21,7 @@ import (
 	"net/http/httptrace"
 	"os"
 
-	obfuscator "github.com/helios/go-sdk/data-obfuscator"
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -139,7 +139,7 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 
 	if !t.metadataOnly && len(bw.requestBody) > 0 {
-		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+		attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
 		span.SetAttributes(attr)
 	}
 
@@ -198,9 +198,9 @@ func (wb *wrappedBody) Write(p []byte) (int, error) {
 func (wb *wrappedBody) Read(b []byte) (int, error) {
 	n, err := wb.body.Read(b)
 
-	if n > 0 && len(b) >= n {
-		shouldSkipContentByType, _ := shouldSkipResponseContentByType(wb.contentType)
-		if !wb.metadataOnly && !shouldSkipContentByType {
+	if n > 0 && len(b) >= n && !wb.metadataOnly {
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(wb.contentType)
+		if !shouldSkipContentByType {
 			wb.responseBody = append(wb.responseBody, b[0:n]...)
 		}
 	}
@@ -210,7 +210,7 @@ func (wb *wrappedBody) Read(b []byte) (int, error) {
 		// nothing to do here but fall through to the return
 	case io.EOF:
 		if !wb.metadataOnly && len(wb.responseBody) > 0 {
-			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(wb.responseBody))})
+			attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(wb.responseBody))})
 			wb.span.SetAttributes(attr)
 		}
 

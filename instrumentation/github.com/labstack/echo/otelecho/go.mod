@@ -6,7 +6,7 @@ replace go.opentelemetry.io/contrib/propagators/b3 => ../../../../../propagators
 
 require (
 	github.com/felixge/httpsnoop v1.0.3
-	github.com/helios/go-sdk/data-obfuscator v1.0.1
+	github.com/helios/go-sdk/data-utils v1.0.2
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/contrib/propagators/b3 v1.12.0

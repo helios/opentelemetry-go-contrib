@@ -20,7 +20,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/helios/go-sdk/data-obfuscator v1.0.1
+	github.com/helios/go-sdk/data-utils v1.0.2
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

@@ -45,7 +45,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/helios/go-sdk/data-obfuscator v1.0.1 // indirect
+	github.com/helios/go-sdk/data-utils v1.0.2 // indirect
 	github.com/helios/opentelemetry-go-contrib/instrumentation/net/http/otelhttp v0.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/ohler55/ojg v1.17.4 // indirect
