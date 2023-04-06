@@ -22,6 +22,7 @@ import (
 
 	obfuscator "github.com/helios/go-sdk/data-obfuscator"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -157,6 +158,26 @@ func obfuscateAndSetAttribute(span *trace.Span, attributeKey string, attributeVa
 	(*span).SetAttributes(faasEventAttribute)
 }
 
+func handleHttpResponse(span *trace.Span, response interface{}) {
+	r := reflect.ValueOf(response)
+	v := reflect.Indirect(r)
+	if v.Kind() != reflect.Struct {
+		return
+	}
+
+	statusCodeField := v.FieldByName("StatusCode")
+	if !statusCodeField.CanInt() {
+		return
+	}
+
+	statusCode := statusCodeField.Int()
+	attr := attribute.KeyValue{Key: "faas.http_status_code", Value: attribute.IntValue(int(statusCode))}
+	(*span).SetAttributes(attr)
+	if statusCode >= 500 {
+		(*span).SetStatus(codes.Error, "")
+	}
+}
+
 // Adds OTel span surrounding customer handler call.
 func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx context.Context, eventJSON []byte, event interface{}, takesContext bool) []reflect.Value {
 	return func(ctx context.Context, eventJSON []byte, event interface{}, takesContext bool) []reflect.Value {
@@ -191,6 +212,7 @@ func (whf *wrappedHandlerFunction) wrapper(handlerFunc interface{}) func(ctx con
 				if success {
 					obfuscateAndSetAttribute(&span, "faas.res", string(strVal))
 				} else {
+					handleHttpResponse(&span, val)
 					parsedVal, err := json.Marshal(val)
 					if err == nil {
 						obfuscateAndSetAttribute(&span, "faas.res", string(parsedVal))
