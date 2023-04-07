@@ -28,7 +28,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 
-	obfuscator "github.com/helios/go-sdk/data-obfuscator"
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
@@ -50,12 +50,14 @@ type bodyWrapper struct {
 	err          error
 	requestBody  []byte
 	metadataOnly bool
+	contentType  string
 }
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
-	if n > 0 {
-		if !w.metadataOnly {
+	if n > 0 && !w.metadataOnly {
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(w.contentType)
+		if !shouldSkipContentByType {
 			w.requestBody = append(w.requestBody, b[0:n]...)
 		}
 	}
@@ -97,7 +99,11 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 				}
 
 				if !rrw.metadataOnly && len(b) > 0 {
-					rrw.responseBody = append(rrw.responseBody, b...)
+					respContentType := writer.Header().Get("Content-Type")
+					shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(respContentType)
+					if !shouldSkipContentByType {
+						rrw.responseBody = append(rrw.responseBody, b...)
+					}
 				}
 
 				return next(b)
@@ -209,12 +215,12 @@ func Middleware(service string, opts ...Option) echo.MiddlewareFunc {
 			if !metadataOnly {
 				collectRequestHeaders(request, span)
 				if len(bw.requestBody) > 0 {
-					attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+					attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
 					span.SetAttributes(attr)
 				}
 
 				if len(rrw.responseBody) > 0 {
-					attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
+					attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
 					span.SetAttributes(attr)
 				}
 			}

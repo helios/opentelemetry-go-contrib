@@ -24,8 +24,7 @@ import (
 
 	"github.com/felixge/httpsnoop"
 	"github.com/gorilla/mux"
-
-	obfuscator "github.com/helios/go-sdk/data-obfuscator"
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -48,12 +47,14 @@ type bodyWrapper struct {
 	err          error
 	requestBody  []byte
 	metadataOnly bool
+	contentType  string
 }
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
-	if n > 0 {
-		if !w.metadataOnly {
+	if n > 0 && !w.metadataOnly{
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(w.contentType)
+		if !shouldSkipContentByType {
 			w.requestBody = append(w.requestBody, b[0:n]...)
 		}
 	}
@@ -141,7 +142,11 @@ func getRRW(writer http.ResponseWriter, metadataOnly bool) *recordingResponseWri
 					rrw.written = true
 				}
 				if !rrw.metadataOnly && len(b) > 0 {
-					rrw.responseBody = append(rrw.responseBody, b...)
+					respContentType := writer.Header().Get("Content-Type")
+					shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(respContentType)
+					if !shouldSkipContentByType {
+						rrw.responseBody = append(rrw.responseBody, b...)
+					}
 				}
 				return next(b)
 			}
@@ -198,6 +203,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var bw bodyWrapper
 	if r.Body != nil && r.Body != http.NoBody {
+		bw.contentType = r.Header.Get("Content-type")
 		bw.ReadCloser = r.Body
 		bw.metadataOnly = metadataOnly
 		r.Body = &bw
@@ -220,12 +226,12 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !metadataOnly {
 		collectRequestHeaders(r, span)
 		if len(bw.requestBody) > 0 {
-			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+			attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
 			span.SetAttributes(attr)
 		}
 
 		if len(rrw.responseBody) > 0 {
-			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
+			attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rrw.responseBody))})
 			span.SetAttributes(attr)
 		}
 	}

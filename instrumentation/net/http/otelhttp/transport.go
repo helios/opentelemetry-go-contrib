@@ -21,7 +21,7 @@ import (
 	"net/http/httptrace"
 	"os"
 
-	obfuscator "github.com/helios/go-sdk/data-obfuscator"
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -110,6 +110,7 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 
 	var bw bodyWrapper
 	if r.Body != nil && r.Body != http.NoBody {
+		bw.contentType = r.Header.Get("Content-type")
 		bw.ReadCloser = r.Body
 		bw.record = func(int64) {}
 		bw.metadataOnly = t.metadataOnly
@@ -138,13 +139,14 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 
 	if !t.metadataOnly && len(bw.requestBody) > 0 {
-		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+		attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
 		span.SetAttributes(attr)
 	}
 
 	span.SetAttributes(semconv.HTTPAttributesFromHTTPStatusCode(res.StatusCode)...)
 	span.SetStatus(semconv.SpanStatusFromHTTPStatusCode(res.StatusCode))
-	res.Body = newWrappedBody(span, res.Body, t.metadataOnly)
+	respContentType := res.Header.Get("Content-Type")
+	res.Body = newWrappedBody(span, res.Body, t.metadataOnly, respContentType)
 
 	return res, err
 }
@@ -152,7 +154,7 @@ func (t *Transport) RoundTrip(r *http.Request) (*http.Response, error) {
 // newWrappedBody returns a new and appropriately scoped *wrappedBody as an
 // io.ReadCloser. If the passed body implements io.Writer, the returned value
 // will implement io.ReadWriteCloser.
-func newWrappedBody(span trace.Span, body io.ReadCloser, metadataOnly bool) io.ReadCloser {
+func newWrappedBody(span trace.Span, body io.ReadCloser, metadataOnly bool, contentType string) io.ReadCloser {
 	// The successful protocol switch responses will have a body that
 	// implement an io.ReadWriteCloser. Ensure this interface type continues
 	// to be satisfied if that is the case.
@@ -162,7 +164,7 @@ func newWrappedBody(span trace.Span, body io.ReadCloser, metadataOnly bool) io.R
 
 	// Remove the implementation of the io.ReadWriteCloser and only implement
 	// the io.ReadCloser.
-	return struct{ io.ReadCloser }{&wrappedBody{span: span, body: body, metadataOnly: metadataOnly}}
+	return struct{ io.ReadCloser }{&wrappedBody{span: span, body: body, metadataOnly: metadataOnly, contentType: contentType }}
 }
 
 // wrappedBody is the response body type returned by the transport
@@ -177,6 +179,7 @@ type wrappedBody struct {
 	span         trace.Span
 	body         io.ReadCloser
 	responseBody []byte
+	contentType string
 	metadataOnly bool
 }
 
@@ -195,8 +198,9 @@ func (wb *wrappedBody) Write(p []byte) (int, error) {
 func (wb *wrappedBody) Read(b []byte) (int, error) {
 	n, err := wb.body.Read(b)
 
-	if n > 0 && len(b) >= n {
-		if !wb.metadataOnly {
+	if n > 0 && len(b) >= n && !wb.metadataOnly {
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(wb.contentType)
+		if !shouldSkipContentByType {
 			wb.responseBody = append(wb.responseBody, b[0:n]...)
 		}
 	}
@@ -206,7 +210,7 @@ func (wb *wrappedBody) Read(b []byte) (int, error) {
 		// nothing to do here but fall through to the return
 	case io.EOF:
 		if !wb.metadataOnly && len(wb.responseBody) > 0 {
-			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(wb.responseBody))})
+			attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(wb.responseBody))})
 			wb.span.SetAttributes(attr)
 		}
 

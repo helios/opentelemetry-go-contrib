@@ -24,7 +24,7 @@ import (
 
 	"github.com/felixge/httpsnoop"
 
-	obfuscator "github.com/helios/go-sdk/data-obfuscator"
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -123,7 +123,7 @@ func (h *Handler) createMeasures() {
 func collectRequestHeaders(r *http.Request, span trace.Span) {
 	headersStr, err := json.Marshal(r.Header)
 	if err == nil {
-		attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.headers", Value: attribute.StringValue(string(headersStr))})
+		attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.headers", Value: attribute.StringValue(string(headersStr))})
 		span.SetAttributes(attr)
 	}
 }
@@ -182,6 +182,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// will affect the identity of it in an unforeseeable way because we assert
 	// ReadCloser fulfills a certain interface and it is indeed nil or NoBody.
 	if r.Body != nil && r.Body != http.NoBody {
+		bw.contentType = r.Header.Get("Content-type")
 		bw.ReadCloser = r.Body
 		bw.record = readRecordFunc
 		bw.metadataOnly = metadataOnly
@@ -236,12 +237,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !metadataOnly {
 		collectRequestHeaders(r, span)
 		if len(bw.requestBody) > 0 {
-			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
+			attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.request.body", Value: attribute.StringValue(string(bw.requestBody))})
 			span.SetAttributes(attr)
 		}
 
 		if len(rww.responseBody) > 0 {
-			attr := obfuscator.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rww.responseBody))})
+			attr := datautils.ObfuscateAttributeValue(attribute.KeyValue{Key: "http.response.body", Value: attribute.StringValue(string(rww.responseBody))})
 			span.SetAttributes(attr)
 		}
 	}

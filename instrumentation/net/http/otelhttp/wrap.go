@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/http"
 
+	datautils "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel/propagation"
 )
 
@@ -34,12 +35,14 @@ type bodyWrapper struct {
 	err          error
 	requestBody  []byte
 	metadataOnly bool
+	contentType  string
 }
 
 func (w *bodyWrapper) Read(b []byte) (int, error) {
 	n, err := w.ReadCloser.Read(b)
-	if n > 0 {
-		if !w.metadataOnly {
+	if n > 0 && !w.metadataOnly {
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(w.contentType)
+		if !shouldSkipContentByType {
 			w.requestBody = append(w.requestBody, b[0:n]...)
 		}
 	}
@@ -88,8 +91,13 @@ func (w *respWriterWrapper) Write(p []byte) (int, error) {
 		w.WriteHeader(http.StatusOK)
 	}
 	n, err := w.ResponseWriter.Write(p)
+	
 	if !w.metadataOnly && len(p) > 0 {
-		w.responseBody = append(w.responseBody, p...)
+		respContentType := w.Header().Get("Content-Type")
+		shouldSkipContentByType, _ := datautils.ShouldSkipContentCollectionByContentType(respContentType)
+		if !shouldSkipContentByType {
+			w.responseBody = append(w.responseBody, p...)
+		}
 	}
 	n1 := int64(n)
 	w.record(n1)

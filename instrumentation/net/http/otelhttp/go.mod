@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/felixge/httpsnoop v1.0.3
-	github.com/helios/go-sdk/data-obfuscator v1.0.1
+	github.com/helios/go-sdk/data-utils v1.0.2
 	github.com/stretchr/testify v1.8.1
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/metric v0.34.0
