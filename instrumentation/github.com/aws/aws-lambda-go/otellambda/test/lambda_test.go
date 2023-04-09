@@ -106,12 +106,16 @@ func setEnvVars() {
 	_ = os.Setenv("AWS_REGION", "us-texas-1")
 	_ = os.Setenv("AWS_LAMBDA_FUNCTION_VERSION", "$LATEST")
 	_ = os.Setenv("_X_AMZN_TRACE_ID", "Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1")
+	lambdacontext.LogGroupName = "log_group1"
+	lambdacontext.LogStreamName = "log_stream1"
 }
 
 func getExpectedSpanStub(traceId trace.TraceID, parentContext context.Context, additionalAttributes ...attribute.KeyValue) tracetest.SpanStub {
 	attributes := []attribute.KeyValue{
 		attribute.String("faas.execution", "123"),
 		attribute.String("faas.id", "arn:partition:service:region:account-id:resource-type:resource-id"),
+		attribute.String("aws.lambda.log_group_name", "log_group1"),
+		attribute.String("aws.lambda.log_stream_name", "log_stream1"),
 		attribute.String("cloud.account.id", "account-id"),
 	}
 

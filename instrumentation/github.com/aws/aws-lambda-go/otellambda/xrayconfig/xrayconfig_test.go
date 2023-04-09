@@ -68,6 +68,8 @@ func setEnvVars() {
 	_ = os.Setenv("AWS_REGION", "us-texas-1")
 	_ = os.Setenv("AWS_LAMBDA_FUNCTION_VERSION", "$LATEST")
 	_ = os.Setenv("_X_AMZN_TRACE_ID", "Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1")
+	lambdacontext.LogGroupName = "log_group1"
+	lambdacontext.LogStreamName = "log_stream1"
 
 	// fix issue: "The requested service provider could not be loaded or initialized."
 	// Guess: The env for Windows in GitHub action is incomplete
@@ -103,6 +105,8 @@ var (
 			Attributes: []*v1common.KeyValue{
 				{Key: "faas.execution", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "123"}}},
 				{Key: "faas.id", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "arn:partition:service:region:account-id:resource-type:resource-id"}}},
+				{Key: "aws.lambda.log_group_name", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "log_group1"}}},
+				{Key: "aws.lambda.log_stream_name", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "log_stream1"}}},
 				{Key: "cloud.account.id", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "account-id"}}},
 				{Key: "faas.res", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "hello world"}}},
 			},
