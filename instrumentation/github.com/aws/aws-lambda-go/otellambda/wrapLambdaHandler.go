@@ -23,6 +23,7 @@ import (
 	obfuscator "github.com/helios/go-sdk/data-utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.11.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -172,9 +173,8 @@ func handleHttpResponse(span *trace.Span, response interface{}) {
 		return
 	}
 
-	statusCode := statusCodeField.Int()
-	attr := attribute.KeyValue{Key: "faas.http_status_code", Value: attribute.IntValue(int(statusCode))}
-	(*span).SetAttributes(attr)
+	statusCode := int(statusCodeField.Int())
+	(*span).SetAttributes(semconv.HTTPStatusCodeKey.Int(statusCode), semconv.FaaSTriggerHTTP)
 	if statusCode >= 500 {
 		(*span).SetStatus(codes.Error, "")
 	}
