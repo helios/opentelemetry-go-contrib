@@ -158,6 +158,8 @@ func obfuscateAndSetAttribute(span *trace.Span, attributeKey string, attributeVa
 	(*span).SetAttributes(faasEventAttribute)
 }
 
+// Handles the case of a Lambda that handles an HTTP request, in which case we're extracting the
+// HTTP status code and marking the span as erroneous accordingly
 func handleHttpResponse(span *trace.Span, response interface{}) {
 	r := reflect.ValueOf(response)
 	v := reflect.Indirect(r)
