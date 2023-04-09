@@ -81,6 +81,8 @@ func (i *instrumentor) tracingBegin(ctx context.Context, eventJSON []byte) (cont
 		if len(i.resAttrs) == 0 {
 			ctxFunctionArn := lc.InvokedFunctionArn
 			attributes = append(attributes, semconv.FaaSIDKey.String(ctxFunctionArn))
+			attributes = append(attributes, attribute.String("aws.lambda.log_group_name", lambdacontext.LogGroupName))
+			attributes = append(attributes, attribute.String("aws.lambda.log_stream_name", lambdacontext.LogStreamName))
 			arnParts := strings.Split(ctxFunctionArn, ":")
 			if len(arnParts) >= 5 {
 				attributes = append(attributes, semconv.CloudAccountIDKey.String(arnParts[4]))
