@@ -34,6 +34,8 @@ const (
 
 var errorLogger = log.New(log.Writer(), "OTel Lambda Error: ", 0)
 
+var coldstart = true
+
 type instrumentor struct {
 	configuration config
 	resAttrs      []attribute.KeyValue
@@ -73,6 +75,12 @@ func (i *instrumentor) tracingBegin(ctx context.Context, eventJSON []byte) (cont
 	if lc != nil {
 		ctxRequestID := lc.AwsRequestID
 		attributes = append(attributes, semconv.FaaSExecutionKey.String(ctxRequestID))
+		if coldstart {
+			attributes = append(attributes, semconv.FaaSColdstartKey.Bool(true))
+			coldstart = false
+		} else {
+			attributes = append(attributes, semconv.FaaSColdstartKey.Bool(false))
+		}
 
 		// Some resource attrs added as span attrs because lambda
 		// resource detectors are created before a lambda
