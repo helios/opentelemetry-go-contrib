@@ -110,14 +110,18 @@ func setEnvVars() {
 	lambdacontext.LogStreamName = "log_stream1"
 }
 
+var coldstart bool = true
+
 func getExpectedSpanStub(traceId trace.TraceID, parentContext context.Context, additionalAttributes ...attribute.KeyValue) tracetest.SpanStub {
 	attributes := []attribute.KeyValue{
 		attribute.String("faas.execution", "123"),
+		attribute.Bool("faas.coldstart", coldstart),
 		attribute.String("faas.id", "arn:partition:service:region:account-id:resource-type:resource-id"),
 		attribute.String("aws.lambda.log_group_name", "log_group1"),
 		attribute.String("aws.lambda.log_stream_name", "log_stream1"),
 		attribute.String("cloud.account.id", "account-id"),
 	}
+	coldstart = false // Can only be true once
 
 	attributes = append(attributes, additionalAttributes...)
 

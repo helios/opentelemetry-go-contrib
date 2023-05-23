@@ -104,6 +104,7 @@ var (
 			EndTimeUnixNano:   0,
 			Attributes: []*v1common.KeyValue{
 				{Key: "faas.execution", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "123"}}},
+				{Key: "faas.coldstart", Value: &v1common.AnyValue{Value: &v1common.AnyValue_BoolValue{BoolValue: true}}},
 				{Key: "faas.id", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "arn:partition:service:region:account-id:resource-type:resource-id"}}},
 				{Key: "aws.lambda.log_group_name", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "log_group1"}}},
 				{Key: "aws.lambda.log_stream_name", Value: &v1common.AnyValue{Value: &v1common.AnyValue_StringValue{StringValue: "log_stream1"}}},
